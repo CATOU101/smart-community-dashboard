@@ -3,6 +3,7 @@ const { body } = require('express-validator');
 const {
   createIssue,
   getAllIssues,
+  getPublicApprovedIssues,
   getUserIssues,
   updateIssueStatus,
   convertIssueToInitiative
@@ -29,6 +30,7 @@ router.post(
     body('title').trim().notEmpty().withMessage('Title is required'),
     body('description').trim().notEmpty().withMessage('Description is required'),
     body('category').isIn(categories).withMessage('Invalid category'),
+    body('severity').isIn(['Low', 'Medium', 'High', 'Critical']).withMessage('Invalid severity'),
     body('latitude').isFloat({ min: -90, max: 90 }).withMessage('Latitude must be between -90 and 90'),
     body('longitude')
       .isFloat({ min: -180, max: 180 })
@@ -47,6 +49,7 @@ router.post(
 );
 
 router.get('/user', protect, getUserIssues);
+router.get('/public', protect, getPublicApprovedIssues);
 router.get('/', protect, authorize('admin'), getAllIssues);
 router.put(
   '/:id',

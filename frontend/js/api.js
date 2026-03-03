@@ -1,4 +1,14 @@
 const API_BASE = '/api';
+const toQuery = (params = {}) => {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      query.set(key, value);
+    }
+  });
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : '';
+};
 
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -32,8 +42,8 @@ export const api = {
   register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }),
   profile: () => request('/auth/me'),
 
-  getInitiatives: () => request('/initiatives'),
-  getInitiativeCoordinates: () => request('/initiatives/coordinates'),
+  getInitiatives: (params) => request(`/initiatives${toQuery(params)}`),
+  getInitiativeCoordinates: (params) => request(`/initiatives/coordinates${toQuery(params)}`),
   createInitiative: (payload) => request('/initiatives', { method: 'POST', body: JSON.stringify(payload) }),
   updateInitiative: (id, payload) =>
     request(`/initiatives/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
@@ -45,8 +55,9 @@ export const api = {
   deleteFeedback: (id) => request(`/feedback/${id}`, { method: 'DELETE' }),
 
   createIssue: (payload) => request('/issues', { method: 'POST', body: JSON.stringify(payload) }),
-  getIssues: () => request('/issues'),
-  getUserIssues: () => request('/issues/user'),
+  getIssues: (params) => request(`/issues${toQuery(params)}`),
+  getPublicIssues: (params) => request(`/issues/public${toQuery(params)}`),
+  getUserIssues: (params) => request(`/issues/user${toQuery(params)}`),
   updateIssue: (id, payload) => request(`/issues/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   convertIssue: (id) => request(`/issues/${id}/convert`, { method: 'POST' })
 };

@@ -24,6 +24,11 @@ const issueRequestSchema = new mongoose.Schema(
       ],
       required: true
     },
+    severity: {
+      type: String,
+      enum: ['Low', 'Medium', 'High', 'Critical'],
+      default: 'Medium'
+    },
     latitude: {
       type: Number,
       required: true,

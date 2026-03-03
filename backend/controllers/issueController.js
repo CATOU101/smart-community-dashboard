@@ -72,6 +72,7 @@ const createIssue = async (req, res) => {
       title: req.body.title,
       description: req.body.description,
       category: req.body.category,
+      severity: req.body.severity || 'Medium',
       latitude: req.body.latitude,
       longitude: req.body.longitude,
       images: req.body.images || [],
@@ -86,9 +87,21 @@ const createIssue = async (req, res) => {
   }
 };
 
+const getPublicApprovedIssues = async (_req, res) => {
+  try {
+    const issues = await IssueRequest.find({ status: 'Approved' })
+      .select('title description category severity latitude longitude status createdAt')
+      .sort({ createdAt: -1 });
+
+    return res.json(issues);
+  } catch (error) {
+    return res.status(500).json({ message: 'Failed to fetch approved issues' });
+  }
+};
+
 const getAllIssues = async (_req, res) => {
   try {
-    const issues = await IssueRequest.find()
+    const issues = await IssueRequest.find({})
       .populate('submittedBy', 'name email')
       .populate('convertedInitiative', 'title')
       .sort({ createdAt: -1 });
@@ -177,6 +190,7 @@ const convertIssueToInitiative = async (req, res) => {
 module.exports = {
   createIssue,
   getAllIssues,
+  getPublicApprovedIssues,
   getUserIssues,
   updateIssueStatus,
   convertIssueToInitiative

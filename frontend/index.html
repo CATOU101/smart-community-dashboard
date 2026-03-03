@@ -43,6 +43,10 @@
             <span class="menu-icon">MR</span>
             My Requests
           </button>
+          <button class="nav-btn" data-section="approvedIssuesSection">
+            <span class="menu-icon">AP</span>
+            Approved Issues
+          </button>
           <button class="nav-btn user-only" data-section="feedbackSection">
             <span class="menu-icon">FB</span>
             Submit Feedback
@@ -73,7 +77,6 @@
               <option value="Completed">Completed</option>
             </select>
           </div>
-
           <div class="topbar-right">
             <button class="icon-btn" type="button" aria-label="Notifications">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -295,6 +298,15 @@
                 <option>Public Safety</option>
               </select>
 
+              <label>Severity</label>
+              <select id="issueSeverity" required>
+                <option value="">Select severity</option>
+                <option>Low</option>
+                <option selected>Medium</option>
+                <option>High</option>
+                <option>Critical</option>
+              </select>
+
               <label>Pick Location on Map</label>
               <div id="issueLocationMap" aria-label="Issue location selector map"></div>
               <div class="inline-fields">
@@ -324,6 +336,14 @@
           </article>
         </section>
 
+        <section id="approvedIssuesSection" class="section hidden">
+          <article class="card">
+            <h3>Public Approved Issues</h3>
+            <div id="approvedIssuesList" class="list"></div>
+            <div id="approvedIssuesMap" aria-label="Approved issues map"></div>
+          </article>
+        </section>
+
         <section id="adminIssueSection" class="section hidden admin-only">
           <article class="card">
             <h3>Issue Requests (Admin)</h3>
@@ -333,6 +353,7 @@
                   <tr>
                     <th>Title</th>
                     <th>Category</th>
+                    <th>Severity</th>
                     <th>Submitter</th>
                     <th>Created At</th>
                     <th>Status</th>

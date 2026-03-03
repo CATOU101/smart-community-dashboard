@@ -6,12 +6,15 @@ const state = {
   initiatives: [],
   issueRequests: [],
   myIssues: [],
+  approvedIssues: [],
   searchTerm: '',
   statusFilter: '',
   map: null,
   mapMarkersLayer: null,
   issueMap: null,
-  issueMapMarker: null
+  issueMapMarker: null,
+  approvedIssuesMap: null,
+  approvedIssuesMarkersLayer: null
 };
 
 const byId = (id) => document.getElementById(id);
@@ -23,6 +26,7 @@ const elements = {
   initiativeFormSection: byId('initiativeFormSection'),
   issueSubmitSection: byId('issueSubmitSection'),
   myRequestsSection: byId('myRequestsSection'),
+  approvedIssuesSection: byId('approvedIssuesSection'),
   adminIssueSection: byId('adminIssueSection'),
   feedbackSection: byId('feedbackSection'),
   adminFeedbackSection: byId('adminFeedbackSection'),
@@ -30,6 +34,7 @@ const elements = {
   initiativesTableBody: byId('initiativesTableBody'),
   feedbackList: byId('feedbackList'),
   myRequestsList: byId('myRequestsList'),
+  approvedIssuesList: byId('approvedIssuesList'),
   adminIssueTableBody: byId('adminIssueTableBody'),
   issueDetailsPane: byId('issueDetailsPane'),
   feedbackInitiative: byId('feedbackInitiative'),
@@ -85,6 +90,10 @@ const setActiveSection = (sectionId) => {
   if (sectionId === 'issueSubmitSection') {
     initIssueLocationMap();
     setTimeout(() => state.issueMap?.invalidateSize(), 120);
+  }
+
+  if (sectionId === 'approvedIssuesSection' && state.approvedIssuesMap) {
+    setTimeout(() => state.approvedIssuesMap.invalidateSize(), 120);
   }
 };
 
@@ -146,6 +155,39 @@ const initIssueLocationMap = () => {
 
     state.issueMapMarker = L.marker([lat, lng]).addTo(state.issueMap);
   });
+};
+
+const initApprovedIssuesMap = () => {
+  if (state.approvedIssuesMap || typeof L === 'undefined') return;
+
+  state.approvedIssuesMap = L.map('approvedIssuesMap').setView([22.5726, 88.3639], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(state.approvedIssuesMap);
+  state.approvedIssuesMarkersLayer = L.layerGroup().addTo(state.approvedIssuesMap);
+};
+
+const renderApprovedIssuesMap = (issues) => {
+  initApprovedIssuesMap();
+  if (!state.approvedIssuesMap || !state.approvedIssuesMarkersLayer) return;
+
+  state.approvedIssuesMarkersLayer.clearLayers();
+  const valid = issues.filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+  if (!valid.length) {
+    state.approvedIssuesMap.setView([22.5726, 88.3639], 12);
+    return;
+  }
+
+  valid.forEach((issue) => {
+    const marker = L.marker([issue.latitude, issue.longitude], { icon: createMapIcon() });
+    marker.bindPopup(`
+      <strong>${issue.title}</strong><br/>
+      Severity: ${issue.severity || 'Medium'}
+    `);
+    marker.addTo(state.approvedIssuesMarkersLayer);
+  });
+
+  state.approvedIssuesMap.setView([valid[0].latitude, valid[0].longitude], 12);
 };
 
 const renderMapMarkers = (initiativesWithCoords) => {
@@ -317,6 +359,7 @@ const renderMyRequests = () => {
   state.myIssues.forEach((issue) => {
     const item = document.createElement('div');
     item.className = 'item';
+    const severity = issue.severity || 'Medium';
     const rejection = issue.status === 'Rejected' ? `<p><strong>Reason:</strong> ${issue.rejectionReason || 'N/A'}</p>` : '';
     const converted =
       issue.status === 'Converted' && issue.convertedInitiative?._id
@@ -326,6 +369,7 @@ const renderMyRequests = () => {
       <p><strong>${issue.title}</strong></p>
       <p>${issue.description}</p>
       <p><strong>Category:</strong> ${issue.category}</p>
+      <p><strong>Severity:</strong> <span class="severity-badge ${severity.toLowerCase()}">${severity}</span></p>
       <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
       ${rejection}
       ${converted}
@@ -335,7 +379,38 @@ const renderMyRequests = () => {
   });
 };
 
+const renderApprovedIssues = () => {
+  elements.approvedIssuesList.innerHTML = '';
+
+  if (!state.approvedIssues.length) {
+    elements.approvedIssuesList.innerHTML = '<p>No approved public issues available.</p>';
+    return;
+  }
+
+  state.approvedIssues.forEach((issue) => {
+    const severity = issue.severity || 'Medium';
+    const item = document.createElement('div');
+    item.className = 'item';
+    item.innerHTML = `
+      <p><strong>${issue.title}</strong></p>
+      <p>${issue.description}</p>
+      <p><strong>Category:</strong> ${issue.category}</p>
+      <p><strong>Severity:</strong> <span class="severity-badge ${severity.toLowerCase()}">${severity}</span></p>
+      <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
+      <small>${formatDate(issue.createdAt)}</small>
+    `;
+    elements.approvedIssuesList.appendChild(item);
+  });
+};
+
+const loadApprovedIssues = async () => {
+  state.approvedIssues = await api.getPublicIssues();
+  renderApprovedIssues();
+  renderApprovedIssuesMap(state.approvedIssues);
+};
+
 const renderIssueDetails = (issue) => {
+  const severity = issue.severity || 'Medium';
   const images = (issue.images || [])
     .map((src) => `<img src="${src}" class="feedback-image" alt="Issue attachment" />`)
     .join('');
@@ -343,6 +418,7 @@ const renderIssueDetails = (issue) => {
     <p><strong>${issue.title}</strong></p>
     <p>${issue.description}</p>
     <p><strong>Category:</strong> ${issue.category}</p>
+    <p><strong>Severity:</strong> <span class="severity-badge ${severity.toLowerCase()}">${severity}</span></p>
     <p><strong>Coordinates:</strong> ${issue.latitude}, ${issue.longitude}</p>
     <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
     <p><strong>Flagged:</strong> ${issue.flagged ? 'Yes' : 'No'}</p>
@@ -356,13 +432,14 @@ const renderAdminIssues = () => {
 
   if (!state.issueRequests.length) {
     elements.adminIssueTableBody.innerHTML = `
-      <tr><td colspan="7">No issue requests found.</td></tr>
+      <tr><td colspan="8">No issue requests found.</td></tr>
     `;
     return;
   }
 
   state.issueRequests.forEach((issue) => {
     const row = document.createElement('tr');
+    const severity = issue.severity || 'Medium';
     if (issue.status === 'Rejected') {
       row.classList.add('issue-row-rejected');
     } else if (issue.flagged) {
@@ -371,6 +448,7 @@ const renderAdminIssues = () => {
     row.innerHTML = `
       <td>${issue.title}</td>
       <td>${issue.category}</td>
+      <td><span class="severity-badge ${severity.toLowerCase()}">${severity}</span></td>
       <td>${issue.submittedBy?.name || 'Unknown'}</td>
       <td>${formatDate(issue.createdAt)}</td>
       <td><span class="status ${statusClass(issue.status)}">${issue.status}</span></td>
@@ -448,6 +526,7 @@ const loadDashboard = async () => {
   state.initiatives = await api.getInitiatives();
   renderFeedbackDropdown();
   renderDashboardViews();
+  await loadApprovedIssues();
   if (isAdmin()) {
     state.issueRequests = await api.getIssues();
     renderAdminIssues();
@@ -596,6 +675,7 @@ const handleIssueSubmit = async (event) => {
       title: byId('issueTitle').value.trim(),
       description: byId('issueDescription').value.trim(),
       category: byId('issueCategory').value,
+      severity: byId('issueSeverity').value,
       latitude: Number(lat),
       longitude: Number(lng),
       images
@@ -638,6 +718,9 @@ const setupNav = () => {
       if (button.dataset.section === 'myRequestsSection' && !isAdmin()) {
         state.myIssues = await api.getUserIssues();
         renderMyRequests();
+      }
+      if (button.dataset.section === 'approvedIssuesSection') {
+        await loadApprovedIssues();
       }
     });
   });
@@ -834,6 +917,7 @@ const logout = () => {
   state.initiatives = [];
   state.issueRequests = [];
   state.myIssues = [];
+  state.approvedIssues = [];
   setAuthUI();
 };
 

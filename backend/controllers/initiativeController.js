@@ -2,7 +2,7 @@ const Initiative = require('../models/Initiative');
 
 const getAllInitiatives = async (_req, res) => {
   try {
-    const initiatives = await Initiative.find().sort({ createdAt: -1 });
+    const initiatives = await Initiative.find({}).sort({ createdAt: -1 });
     return res.json(initiatives);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to fetch initiatives' });
@@ -24,7 +24,7 @@ const getInitiativeById = async (req, res) => {
 
 const getInitiativeCoordinates = async (_req, res) => {
   try {
-    const initiatives = await Initiative.find()
+    const initiatives = await Initiative.find({})
       .select('title status progressPercentage latitude longitude')
       .sort({ createdAt: -1 });
 
