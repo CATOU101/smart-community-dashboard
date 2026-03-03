@@ -1,34 +1,71 @@
 const IssueRequest = require('../models/IssueRequest');
 const Initiative = require('../models/Initiative');
 
-const PRIVATE_KEYWORDS = [
-  'my house',
-  'my wall',
-  'my sink',
+const PRIVATE_PLACES = [
+  'house',
+  'home',
   'apartment',
+  'flat',
+  'room',
   'bathroom',
   'bedroom',
   'kitchen',
   'toilet',
-  'roof leak',
-  'my room',
-  'inside my home'
+  'roof',
+  'gate',
+  'wall',
+  'pipe',
+  'drain',
+  'ceiling',
+  'balcony',
+  'garage',
+  'floor'
 ];
 
-const PRIVATE_MY_PATTERN = /\bmy\s+(house|wall|sink|apartment|bathroom|bedroom|kitchen|toilet|roof|room|pipe|drain|gate)\b/i;
+const PERSONAL_WORDS = ['my', 'mine', 'inside my', 'in my', 'at my', 'our house', 'our home'];
 
-const hasPrivateKeyword = ({ title, description }) => {
-  const text = `${String(title || '')} ${String(description || '')}`.toLowerCase();
-  return PRIVATE_KEYWORDS.some((keyword) => text.includes(keyword)) || PRIVATE_MY_PATTERN.test(text);
+const PRIVATE_COMBO_REGEX =
+  /\b(my|our)\s+(house|home|apartment|flat|room|bathroom|bedroom|kitchen|toilet|roof|gate|wall|pipe|drain|ceiling|garage)\b/i;
+
+const buildIssueText = ({ title, description }) =>
+  `${String(title || '')} ${String(description || '')}`.toLowerCase().trim();
+
+const computePrivateScore = ({ title, description }) => {
+  const text = buildIssueText({ title, description });
+  let score = 0;
+
+  if (!text) {
+    return { score, text };
+  }
+
+  // Personal ownership/context strongly signals non-community issue.
+  if (PERSONAL_WORDS.some((word) => text.includes(word))) {
+    score += 2;
+  }
+
+  // Private place terms add weaker evidence by themselves.
+  if (PRIVATE_PLACES.some((place) => text.includes(place))) {
+    score += 1;
+  }
+
+  // "my/our + private place" is the strongest explicit private signal.
+  if (PRIVATE_COMBO_REGEX.test(text)) {
+    score += 3;
+  }
+
+  return { score, text };
 };
 
 const createIssue = async (req, res) => {
   try {
-    // Private/personal issue content in title/description gets auto-flagged for manual admin review.
-    const flagged = hasPrivateKeyword({
+    const { score } = computePrivateScore({
       title: req.body.title,
       description: req.body.description
     });
+
+    // Threshold 3 balances false positives and catches clear personal requests.
+    // We only flag for review; admins decide final action.
+    const flagged = score >= 3;
     const status = flagged ? 'Under Review' : 'Submitted';
 
     const issue = await IssueRequest.create({
