@@ -18,6 +18,17 @@ const initiativeValidation = [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('location').trim().notEmpty().withMessage('Location is required'),
+  body('category')
+    .optional()
+    .isIn([
+      'Road & Infrastructure',
+      'Waste Management',
+      'Water Supply',
+      'Street Lighting',
+      'Public Parks',
+      'Public Safety'
+    ])
+    .withMessage('Invalid category'),
   body('latitude')
     .optional()
     .isFloat({ min: -90, max: 90 })

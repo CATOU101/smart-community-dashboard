@@ -10,18 +10,20 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 const authRoutes = require('./routes/authRoutes');
 const initiativeRoutes = require('./routes/initiativeRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
+const issueRoutes = require('./routes/issueRoutes');
 
 connectDB();
 
 const app = express();
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 app.use(morgan('dev'));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/initiatives', initiativeRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/issues', issueRoutes);
 
 // Serve frontend static files.
 app.use(express.static(path.resolve(__dirname, '../frontend')));

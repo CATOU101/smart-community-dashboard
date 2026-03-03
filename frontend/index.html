@@ -35,9 +35,21 @@
             <span class="menu-icon">IN</span>
             Initiatives
           </button>
+          <button class="nav-btn user-only" data-section="issueSubmitSection">
+            <span class="menu-icon">IR</span>
+            Issue Request
+          </button>
+          <button class="nav-btn user-only" data-section="myRequestsSection">
+            <span class="menu-icon">MR</span>
+            My Requests
+          </button>
           <button class="nav-btn user-only" data-section="feedbackSection">
             <span class="menu-icon">FB</span>
             Submit Feedback
+          </button>
+          <button class="nav-btn admin-only" data-section="adminIssueSection">
+            <span class="menu-icon">AQ</span>
+            Issue Requests
           </button>
           <button class="nav-btn admin-only" data-section="adminFeedbackSection">
             <span class="menu-icon">FI</span>
@@ -252,8 +264,89 @@
               <select id="feedbackInitiative" required></select>
               <label>Comment</label>
               <textarea id="feedbackComment" rows="4" minlength="3" maxlength="500" required></textarea>
+              <label>Attach Image (optional)</label>
+              <input type="file" id="feedbackImage" accept="image/*" />
+              <img id="feedbackImagePreview" class="feedback-image hidden" alt="Feedback image preview" />
               <button type="submit">Submit Feedback</button>
             </form>
+          </article>
+        </section>
+
+        <section id="issueSubmitSection" class="section hidden user-only">
+          <article class="card">
+            <h3>Submit Issue Request</h3>
+            <p class="hint">Only public community issues are allowed.</p>
+            <p class="hint">Private/personal requests will be rejected.</p>
+            <form id="issueForm">
+              <label>Title</label>
+              <input type="text" id="issueTitle" required />
+
+              <label>Description</label>
+              <textarea id="issueDescription" rows="4" required></textarea>
+
+              <label>Category</label>
+              <select id="issueCategory" required>
+                <option value="">Select category</option>
+                <option>Road & Infrastructure</option>
+                <option>Waste Management</option>
+                <option>Water Supply</option>
+                <option>Street Lighting</option>
+                <option>Public Parks</option>
+                <option>Public Safety</option>
+              </select>
+
+              <label>Pick Location on Map</label>
+              <div id="issueLocationMap" aria-label="Issue location selector map"></div>
+              <div class="inline-fields">
+                <div>
+                  <label>Latitude</label>
+                  <input type="number" id="issueLatitude" readonly required />
+                </div>
+                <div>
+                  <label>Longitude</label>
+                  <input type="number" id="issueLongitude" readonly required />
+                </div>
+              </div>
+
+              <label>Upload Images (optional)</label>
+              <input type="file" id="issueImages" accept="image/*" multiple />
+              <div id="issueImagePreview" class="image-preview-grid"></div>
+
+              <button type="submit">Submit Issue Request</button>
+            </form>
+          </article>
+        </section>
+
+        <section id="myRequestsSection" class="section hidden user-only">
+          <article class="card">
+            <h3>My Requests</h3>
+            <div id="myRequestsList" class="list"></div>
+          </article>
+        </section>
+
+        <section id="adminIssueSection" class="section hidden admin-only">
+          <article class="card">
+            <h3>Issue Requests (Admin)</h3>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Submitter</th>
+                    <th>Created At</th>
+                    <th>Status</th>
+                    <th>Flagged</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="adminIssueTableBody"></tbody>
+              </table>
+            </div>
+          </article>
+          <article class="card">
+            <h3>Issue Details</h3>
+            <div id="issueDetailsPane" class="hint">Select “View Details” on a row.</div>
           </article>
         </section>
 

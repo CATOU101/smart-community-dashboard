@@ -17,7 +17,14 @@ router.post(
   protect,
   [
     body('initiative').notEmpty().withMessage('Initiative id is required'),
-    body('comment').trim().isLength({ min: 3, max: 500 }).withMessage('Comment must be between 3 and 500 chars')
+    body('comment').trim().isLength({ min: 3, max: 500 }).withMessage('Comment must be between 3 and 500 chars'),
+    body('imageData')
+      .optional()
+      .isString()
+      .isLength({ max: 3000000 })
+      .withMessage('Image is too large')
+      .custom((value) => value.startsWith('data:image/'))
+      .withMessage('Invalid image format')
   ],
   validate,
   addFeedback

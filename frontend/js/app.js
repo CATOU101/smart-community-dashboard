@@ -4,10 +4,14 @@ import { renderCharts } from './charts.js';
 const state = {
   user: null,
   initiatives: [],
+  issueRequests: [],
+  myIssues: [],
   searchTerm: '',
   statusFilter: '',
   map: null,
-  mapMarkersLayer: null
+  mapMarkersLayer: null,
+  issueMap: null,
+  issueMapMarker: null
 };
 
 const byId = (id) => document.getElementById(id);
@@ -17,11 +21,17 @@ const elements = {
   dashboardSection: byId('dashboardSection'),
   initiativesSection: byId('initiativesSection'),
   initiativeFormSection: byId('initiativeFormSection'),
+  issueSubmitSection: byId('issueSubmitSection'),
+  myRequestsSection: byId('myRequestsSection'),
+  adminIssueSection: byId('adminIssueSection'),
   feedbackSection: byId('feedbackSection'),
   adminFeedbackSection: byId('adminFeedbackSection'),
   initiativesList: byId('initiativesList'),
   initiativesTableBody: byId('initiativesTableBody'),
   feedbackList: byId('feedbackList'),
+  myRequestsList: byId('myRequestsList'),
+  adminIssueTableBody: byId('adminIssueTableBody'),
+  issueDetailsPane: byId('issueDetailsPane'),
   feedbackInitiative: byId('feedbackInitiative'),
   statsCards: byId('statsCards'),
   toast: byId('toast'),
@@ -46,6 +56,14 @@ const showToast = (message) => {
   setTimeout(() => elements.toast.classList.add('hidden'), 2500);
 };
 
+const readFileAsDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read selected image'));
+    reader.readAsDataURL(file);
+  });
+
 const setActiveSection = (sectionId) => {
   document.querySelectorAll('.section').forEach((section) => {
     section.classList.remove('active');
@@ -63,11 +81,17 @@ const setActiveSection = (sectionId) => {
   if (sectionId === 'dashboardSection' && state.map) {
     setTimeout(() => state.map.invalidateSize(), 120);
   }
+
+  if (sectionId === 'issueSubmitSection') {
+    initIssueLocationMap();
+    setTimeout(() => state.issueMap?.invalidateSize(), 120);
+  }
 };
 
 const isAdmin = () => state.user?.role === 'admin';
 
 const formatDate = (value) => new Date(value).toLocaleDateString();
+const statusClass = (value = '') => value.toLowerCase().replace(/\s+/g, '-');
 
 const validateInitiativeForm = (payload) => {
   if (new Date(payload.endDate) < new Date(payload.startDate)) {
@@ -100,6 +124,28 @@ const initMap = () => {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(state.map);
   state.mapMarkersLayer = L.layerGroup().addTo(state.map);
+};
+
+const initIssueLocationMap = () => {
+  if (state.issueMap || typeof L === 'undefined') return;
+
+  state.issueMap = L.map('issueLocationMap').setView([22.5726, 88.3639], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(state.issueMap);
+
+  state.issueMap.on('click', (event) => {
+    const { lat, lng } = event.latlng;
+    byId('issueLatitude').value = lat.toFixed(6);
+    byId('issueLongitude').value = lng.toFixed(6);
+
+    if (state.issueMapMarker) {
+      state.issueMapMarker.setLatLng([lat, lng]);
+      return;
+    }
+
+    state.issueMapMarker = L.marker([lat, lng]).addTo(state.issueMap);
+  });
 };
 
 const renderMapMarkers = (initiativesWithCoords) => {
@@ -252,10 +298,93 @@ const renderAdminFeedback = async () => {
       <p><strong>Initiative:</strong> ${entry.initiative?.title || 'Unknown'}</p>
       <p><strong>User:</strong> ${entry.user?.name || 'Unknown'} (${entry.user?.email || 'n/a'})</p>
       <p>${entry.comment}</p>
+      ${entry.imageData ? `<img src="${entry.imageData}" class="feedback-image" alt="Feedback attachment" />` : ''}
       <small>${formatDate(entry.createdAt)}</small>
       ${deleteButton}
     `;
     elements.feedbackList.appendChild(item);
+  });
+};
+
+const renderMyRequests = () => {
+  elements.myRequestsList.innerHTML = '';
+
+  if (!state.myIssues.length) {
+    elements.myRequestsList.innerHTML = '<p>No issue requests submitted yet.</p>';
+    return;
+  }
+
+  state.myIssues.forEach((issue) => {
+    const item = document.createElement('div');
+    item.className = 'item';
+    const rejection = issue.status === 'Rejected' ? `<p><strong>Reason:</strong> ${issue.rejectionReason || 'N/A'}</p>` : '';
+    const converted =
+      issue.status === 'Converted' && issue.convertedInitiative?._id
+        ? `<p><a href="#" class="initiative-link" data-initiative-id="${issue.convertedInitiative._id}">Converted to Initiative</a></p>`
+        : '';
+    item.innerHTML = `
+      <p><strong>${issue.title}</strong></p>
+      <p>${issue.description}</p>
+      <p><strong>Category:</strong> ${issue.category}</p>
+      <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
+      ${rejection}
+      ${converted}
+      <small>${formatDate(issue.createdAt)}</small>
+    `;
+    elements.myRequestsList.appendChild(item);
+  });
+};
+
+const renderIssueDetails = (issue) => {
+  const images = (issue.images || [])
+    .map((src) => `<img src="${src}" class="feedback-image" alt="Issue attachment" />`)
+    .join('');
+  elements.issueDetailsPane.innerHTML = `
+    <p><strong>${issue.title}</strong></p>
+    <p>${issue.description}</p>
+    <p><strong>Category:</strong> ${issue.category}</p>
+    <p><strong>Coordinates:</strong> ${issue.latitude}, ${issue.longitude}</p>
+    <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
+    <p><strong>Flagged:</strong> ${issue.flagged ? 'Yes' : 'No'}</p>
+    ${issue.rejectionReason ? `<p><strong>Rejection Reason:</strong> ${issue.rejectionReason}</p>` : ''}
+    ${images || '<p>No images attached.</p>'}
+  `;
+};
+
+const renderAdminIssues = () => {
+  elements.adminIssueTableBody.innerHTML = '';
+
+  if (!state.issueRequests.length) {
+    elements.adminIssueTableBody.innerHTML = `
+      <tr><td colspan="7">No issue requests found.</td></tr>
+    `;
+    return;
+  }
+
+  state.issueRequests.forEach((issue) => {
+    const row = document.createElement('tr');
+    if (issue.status === 'Rejected') {
+      row.classList.add('issue-row-rejected');
+    } else if (issue.flagged) {
+      row.classList.add('issue-row-flagged');
+    }
+    row.innerHTML = `
+      <td>${issue.title}</td>
+      <td>${issue.category}</td>
+      <td>${issue.submittedBy?.name || 'Unknown'}</td>
+      <td>${formatDate(issue.createdAt)}</td>
+      <td><span class="status ${statusClass(issue.status)}">${issue.status}</span></td>
+      <td><span class="flag-pill">${issue.flagged ? 'Yes' : 'No'}</span></td>
+      <td>
+        <div class="item-actions">
+          <button data-issue-action="approve" data-issue-id="${issue._id}">Approve</button>
+          <button class="secondary-btn" data-issue-action="reject" data-issue-id="${issue._id}">Reject</button>
+          <button class="secondary-btn" data-issue-action="convert" data-issue-id="${issue._id}">Convert</button>
+          <button class="secondary-btn" data-issue-action="details" data-issue-id="${issue._id}">View Details</button>
+        </div>
+      </td>
+    `;
+    elements.adminIssueTableBody.appendChild(row);
   });
 };
 
@@ -319,6 +448,13 @@ const loadDashboard = async () => {
   state.initiatives = await api.getInitiatives();
   renderFeedbackDropdown();
   renderDashboardViews();
+  if (isAdmin()) {
+    state.issueRequests = await api.getIssues();
+    renderAdminIssues();
+  } else if (state.user) {
+    state.myIssues = await api.getUserIssues();
+    renderMyRequests();
+  }
   await renderAdminFeedback();
 };
 
@@ -414,15 +550,70 @@ const handleFeedbackSubmit = async (event) => {
   event.preventDefault();
 
   try {
+    const imageFile = byId('feedbackImage')?.files?.[0];
+    if (imageFile && imageFile.size > 2 * 1024 * 1024) {
+      throw new Error('Image size must be 2MB or less');
+    }
+
     const payload = {
       initiative: byId('feedbackInitiative').value,
-      comment: byId('feedbackComment').value.trim()
+      comment: byId('feedbackComment').value.trim(),
+      imageData: imageFile ? await readFileAsDataUrl(imageFile) : undefined
     };
 
     await api.addFeedback(payload);
     event.target.reset();
+    const preview = byId('feedbackImagePreview');
+    preview.src = '';
+    preview.classList.add('hidden');
     showToast('Feedback submitted successfully');
     await renderAdminFeedback();
+  } catch (error) {
+    showToast(error.message);
+  }
+};
+
+const handleIssueSubmit = async (event) => {
+  event.preventDefault();
+
+  try {
+    const lat = byId('issueLatitude').value;
+    const lng = byId('issueLongitude').value;
+    if (!lat || !lng) {
+      throw new Error('Please click on the map to set issue location');
+    }
+
+    const files = Array.from(byId('issueImages')?.files || []);
+    const images = [];
+    for (const file of files) {
+      if (file.size > 2 * 1024 * 1024) {
+        throw new Error('Each image must be 2MB or less');
+      }
+      images.push(await readFileAsDataUrl(file));
+    }
+
+    const payload = {
+      title: byId('issueTitle').value.trim(),
+      description: byId('issueDescription').value.trim(),
+      category: byId('issueCategory').value,
+      latitude: Number(lat),
+      longitude: Number(lng),
+      images
+    };
+
+    await api.createIssue(payload);
+    event.target.reset();
+    byId('issueLatitude').value = '';
+    byId('issueLongitude').value = '';
+    byId('issueImagePreview').innerHTML = '';
+    if (state.issueMapMarker) {
+      state.issueMap.removeLayer(state.issueMapMarker);
+      state.issueMapMarker = null;
+    }
+    showToast('Issue request submitted');
+    state.myIssues = await api.getUserIssues();
+    renderMyRequests();
+    setActiveSection('myRequestsSection');
   } catch (error) {
     showToast(error.message);
   }
@@ -439,6 +630,14 @@ const setupNav = () => {
       setActiveSection(button.dataset.section);
       if (button.dataset.section === 'adminFeedbackSection') {
         await renderAdminFeedback();
+      }
+      if (button.dataset.section === 'adminIssueSection' && isAdmin()) {
+        state.issueRequests = await api.getIssues();
+        renderAdminIssues();
+      }
+      if (button.dataset.section === 'myRequestsSection' && !isAdmin()) {
+        state.myIssues = await api.getUserIssues();
+        renderMyRequests();
       }
     });
   });
@@ -475,6 +674,99 @@ const setupFeedbackActions = () => {
       await api.deleteFeedback(button.dataset.feedbackId);
       showToast('Feedback deleted');
       await renderAdminFeedback();
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  byId('feedbackImage')?.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    const preview = byId('feedbackImagePreview');
+
+    if (!file) {
+      preview.src = '';
+      preview.classList.add('hidden');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Image size must be 2MB or less');
+      event.target.value = '';
+      preview.src = '';
+      preview.classList.add('hidden');
+      return;
+    }
+
+    try {
+      preview.src = await readFileAsDataUrl(file);
+      preview.classList.remove('hidden');
+    } catch (error) {
+      showToast(error.message);
+      event.target.value = '';
+      preview.src = '';
+      preview.classList.add('hidden');
+    }
+  });
+};
+
+const setupIssueActions = () => {
+  byId('issueImages')?.addEventListener('change', async (event) => {
+    const preview = byId('issueImagePreview');
+    preview.innerHTML = '';
+
+    const files = Array.from(event.target.files || []);
+    for (const file of files) {
+      if (file.size > 2 * 1024 * 1024) {
+        showToast('Each image must be 2MB or less');
+        event.target.value = '';
+        preview.innerHTML = '';
+        return;
+      }
+
+      try {
+        const src = await readFileAsDataUrl(file);
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'Issue upload preview';
+        preview.appendChild(img);
+      } catch (error) {
+        showToast(error.message);
+      }
+    }
+  });
+
+  elements.adminIssueTableBody?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-issue-action]');
+    if (!button || !isAdmin()) return;
+
+    const action = button.dataset.issueAction;
+    const issueId = button.dataset.issueId;
+    const issue = state.issueRequests.find((row) => row._id === issueId);
+    if (!issue) return;
+
+    try {
+      if (action === 'details') {
+        renderIssueDetails(issue);
+        return;
+      }
+
+      if (action === 'approve') {
+        await api.updateIssue(issueId, { status: 'Approved' });
+        showToast('Issue approved');
+      } else if (action === 'reject') {
+        const reason = window.prompt('Enter rejection reason');
+        if (!reason) return;
+        await api.updateIssue(issueId, { status: 'Rejected', rejectionReason: reason });
+        showToast('Issue rejected');
+      } else if (action === 'convert') {
+        await api.convertIssue(issueId);
+        showToast('Issue converted to initiative');
+        await loadDashboard();
+        return;
+      }
+
+      state.issueRequests = await api.getIssues();
+      renderAdminIssues();
     } catch (error) {
       showToast(error.message);
     }
@@ -524,7 +816,7 @@ const setupInitiativeFormNavigation = () => {
 
 const setupMapActions = () => {
   document.addEventListener('click', (event) => {
-    const link = event.target.closest('.map-popup-link');
+    const link = event.target.closest('.map-popup-link, .initiative-link');
     if (!link) return;
 
     event.preventDefault();
@@ -540,6 +832,8 @@ const logout = () => {
   localStorage.removeItem('token');
   state.user = null;
   state.initiatives = [];
+  state.issueRequests = [];
+  state.myIssues = [];
   setAuthUI();
 };
 
@@ -550,12 +844,14 @@ const boot = async () => {
   setupTopActions();
   setupSearch();
   setupFeedbackActions();
+  setupIssueActions();
   setupMapActions();
 
   byId('loginForm').addEventListener('submit', handleLogin);
   byId('registerForm').addEventListener('submit', handleRegister);
   byId('initiativeForm').addEventListener('submit', handleInitiativeSubmit);
   byId('feedbackForm').addEventListener('submit', handleFeedbackSubmit);
+  byId('issueForm').addEventListener('submit', handleIssueSubmit);
   elements.logoutBtn.addEventListener('click', logout);
   elements.cancelEditBtn.addEventListener('click', () => {
     clearInitiativeForm();

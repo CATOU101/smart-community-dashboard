@@ -5,7 +5,8 @@ const addFeedback = async (req, res) => {
     const feedback = await Feedback.create({
       initiative: req.body.initiative,
       user: req.user._id,
-      comment: req.body.comment
+      comment: req.body.comment,
+      imageData: req.body.imageData || null
     });
 
     const populated = await feedback.populate('user', 'name email role');

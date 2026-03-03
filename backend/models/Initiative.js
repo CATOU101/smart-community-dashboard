@@ -17,6 +17,17 @@ const initiativeSchema = new mongoose.Schema(
       required: true,
       trim: true
     },
+    category: {
+      type: String,
+      enum: [
+        'Road & Infrastructure',
+        'Waste Management',
+        'Water Supply',
+        'Street Lighting',
+        'Public Parks',
+        'Public Safety'
+      ]
+    },
     latitude: {
       type: Number,
       min: -90,

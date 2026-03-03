@@ -42,5 +42,11 @@ export const api = {
   addFeedback: (payload) => request('/feedback', { method: 'POST', body: JSON.stringify(payload) }),
   getFeedbackByInitiative: (id) => request(`/feedback/initiative/${id}`),
   getAllFeedback: () => request('/feedback'),
-  deleteFeedback: (id) => request(`/feedback/${id}`, { method: 'DELETE' })
+  deleteFeedback: (id) => request(`/feedback/${id}`, { method: 'DELETE' }),
+
+  createIssue: (payload) => request('/issues', { method: 'POST', body: JSON.stringify(payload) }),
+  getIssues: () => request('/issues'),
+  getUserIssues: () => request('/issues/user'),
+  updateIssue: (id, payload) => request(`/issues/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  convertIssue: (id) => request(`/issues/${id}/convert`, { method: 'POST' })
 };
