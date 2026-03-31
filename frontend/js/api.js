@@ -54,10 +54,15 @@ export const api = {
   getAllFeedback: () => request('/feedback'),
   deleteFeedback: (id) => request(`/feedback/${id}`, { method: 'DELETE' }),
 
+  getNotifications: () => request('/notifications'),
+  markNotificationRead: (id) => request(`/notifications/mark-read/${id}`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/notifications/mark-all-read', { method: 'POST' }),
+
   createIssue: (payload) => request('/issues', { method: 'POST', body: JSON.stringify(payload) }),
   getIssues: (params) => request(`/issues${toQuery(params)}`),
   getPublicIssues: (params) => request(`/issues/public${toQuery(params)}`),
   getUserIssues: (params) => request(`/issues/user${toQuery(params)}`),
   updateIssue: (id, payload) => request(`/issues/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  upvoteIssue: (id) => request(`/issues/${id}/upvote`, { method: 'POST' }),
   convertIssue: (id) => request(`/issues/${id}/convert`, { method: 'POST' })
 };

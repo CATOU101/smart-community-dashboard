@@ -7,6 +7,8 @@ const state = {
   issueRequests: [],
   myIssues: [],
   approvedIssues: [],
+  notifications: [],
+  notificationPollId: null,
   searchTerm: '',
   statusFilter: '',
   map: null,
@@ -40,6 +42,11 @@ const elements = {
   feedbackInitiative: byId('feedbackInitiative'),
   statsCards: byId('statsCards'),
   toast: byId('toast'),
+  notificationBell: byId('notificationBell'),
+  notificationBadge: byId('notificationBadge'),
+  notificationDropdown: byId('notificationDropdown'),
+  notificationList: byId('notificationList'),
+  markAllReadBtn: byId('markAllReadBtn'),
   roleBadge: byId('roleBadge'),
   profileName: byId('profileName'),
   globalSearch: byId('globalSearch'),
@@ -101,6 +108,9 @@ const isAdmin = () => state.user?.role === 'admin';
 
 const formatDate = (value) => new Date(value).toLocaleDateString();
 const statusClass = (value = '') => value.toLowerCase().replace(/\s+/g, '-');
+const getUpvoteCount = (issue) =>
+  Number.isFinite(issue?.upvoteCount) ? issue.upvoteCount : Array.isArray(issue?.upvotes) ? issue.upvotes.length : 0;
+const unreadNotificationCount = () => state.notifications.filter((item) => !item.read).length;
 
 const validateInitiativeForm = (payload) => {
   if (new Date(payload.endDate) < new Date(payload.startDate)) {
@@ -182,7 +192,8 @@ const renderApprovedIssuesMap = (issues) => {
     const marker = L.marker([issue.latitude, issue.longitude], { icon: createMapIcon() });
     marker.bindPopup(`
       <strong>${issue.title}</strong><br/>
-      Severity: ${issue.severity || 'Medium'}
+      Severity: ${issue.severity || 'Medium'}<br/>
+      Support: ${getUpvoteCount(issue)}
     `);
     marker.addTo(state.approvedIssuesMarkersLayer);
   });
@@ -248,6 +259,61 @@ const renderStats = (items) => {
     <div class="stat-box"><strong>${pending}</strong><div>Pending</div></div>
     <div class="stat-box"><strong>INR ${totalBudget.toLocaleString()}</strong><div>Total Budget</div></div>
   `;
+};
+
+const renderNotifications = () => {
+  if (!elements.notificationList) return;
+
+  const unreadCount = unreadNotificationCount();
+  elements.notificationBadge.textContent = String(unreadCount);
+  elements.notificationBadge.classList.toggle('hidden', unreadCount === 0);
+
+   if (!state.user) {
+    elements.notificationList.innerHTML = '<p class="notification-empty">Login to view notifications.</p>';
+    return;
+  }
+
+  if (!state.notifications.length) {
+    elements.notificationList.innerHTML = '<p class="notification-empty">No notifications yet.</p>';
+    return;
+  }
+
+  elements.notificationList.innerHTML = state.notifications
+    .map(
+      (notification) => `
+        <button
+          type="button"
+          class="notification-item ${notification.read ? '' : 'unread'}"
+          data-notification-id="${notification._id}"
+          data-notification-link="${notification.link || ''}"
+        >
+          <span class="notification-message">${notification.message}</span>
+          <span class="notification-date">${formatDate(notification.createdAt)}</span>
+        </button>
+      `
+    )
+    .join('');
+};
+
+const loadNotifications = async () => {
+  if (!state.user) return;
+
+  try {
+    state.notifications = await api.getNotifications();
+    renderNotifications();
+  } catch (_error) {
+    // Keep notification failures non-blocking for the rest of the app.
+  }
+};
+
+const startNotificationPolling = () => {
+  if (state.notificationPollId) {
+    clearInterval(state.notificationPollId);
+  }
+
+  state.notificationPollId = setInterval(() => {
+    loadNotifications();
+  }, 30000);
 };
 
 const renderFeedbackDropdown = () => {
@@ -317,6 +383,39 @@ const focusInitiativeRow = (initiativeId) => {
   document.querySelectorAll('.row-focus').forEach((el) => el.classList.remove('row-focus'));
   row.classList.add('row-focus');
   row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+};
+
+const focusIssueNotificationTarget = async (issueId) => {
+  if (isAdmin()) {
+    state.issueRequests = await api.getIssues();
+    renderAdminIssues();
+    setActiveSection('adminIssueSection');
+    const issue = state.issueRequests.find((item) => item._id === issueId);
+    if (issue) {
+      renderIssueDetails(issue);
+    }
+    return;
+  }
+
+  state.myIssues = await api.getUserIssues();
+  renderMyRequests();
+  setActiveSection('myRequestsSection');
+};
+
+const navigateFromNotification = async (link) => {
+  if (!link) return;
+
+  const issueMatch = link.match(/^\/issues\/([^/]+)$/);
+  if (issueMatch) {
+    await focusIssueNotificationTarget(issueMatch[1]);
+    return;
+  }
+
+  const initiativeMatch = link.match(/^\/initiatives\/([^/]+)$/);
+  if (initiativeMatch) {
+    setActiveSection('initiativesSection');
+    setTimeout(() => focusInitiativeRow(initiativeMatch[1]), 80);
+  }
 };
 
 const renderAdminFeedback = async () => {
@@ -389,6 +488,20 @@ const renderApprovedIssues = () => {
 
   state.approvedIssues.forEach((issue) => {
     const severity = issue.severity || 'Medium';
+    const supportCount = getUpvoteCount(issue);
+    const supportButton = !isAdmin()
+      ? `
+        <div class="item-actions">
+          <button
+            type="button"
+            class="secondary-btn support-btn ${issue.hasSupported ? 'supported' : ''}"
+            data-support-issue-id="${issue._id}"
+          >
+            👍 Support (${supportCount})
+          </button>
+        </div>
+      `
+      : `<p><strong>Support:</strong> ${supportCount}</p>`;
     const item = document.createElement('div');
     item.className = 'item';
     item.innerHTML = `
@@ -397,6 +510,7 @@ const renderApprovedIssues = () => {
       <p><strong>Category:</strong> ${issue.category}</p>
       <p><strong>Severity:</strong> <span class="severity-badge ${severity.toLowerCase()}">${severity}</span></p>
       <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
+      ${supportButton}
       <small>${formatDate(issue.createdAt)}</small>
     `;
     elements.approvedIssuesList.appendChild(item);
@@ -419,6 +533,7 @@ const renderIssueDetails = (issue) => {
     <p>${issue.description}</p>
     <p><strong>Category:</strong> ${issue.category}</p>
     <p><strong>Severity:</strong> <span class="severity-badge ${severity.toLowerCase()}">${severity}</span></p>
+    <p><strong>Support:</strong> ${getUpvoteCount(issue)}</p>
     <p><strong>Coordinates:</strong> ${issue.latitude}, ${issue.longitude}</p>
     <p><strong>Status:</strong> <span class="status ${statusClass(issue.status)}">${issue.status}</span></p>
     <p><strong>Flagged:</strong> ${issue.flagged ? 'Yes' : 'No'}</p>
@@ -432,7 +547,7 @@ const renderAdminIssues = () => {
 
   if (!state.issueRequests.length) {
     elements.adminIssueTableBody.innerHTML = `
-      <tr><td colspan="8">No issue requests found.</td></tr>
+      <tr><td colspan="9">No issue requests found.</td></tr>
     `;
     return;
   }
@@ -449,6 +564,7 @@ const renderAdminIssues = () => {
       <td>${issue.title}</td>
       <td>${issue.category}</td>
       <td><span class="severity-badge ${severity.toLowerCase()}">${severity}</span></td>
+      <td>${getUpvoteCount(issue)}</td>
       <td>${issue.submittedBy?.name || 'Unknown'}</td>
       <td>${formatDate(issue.createdAt)}</td>
       <td><span class="status ${statusClass(issue.status)}">${issue.status}</span></td>
@@ -473,6 +589,7 @@ const setAuthUI = () => {
   if (state.user) {
     elements.authSection.classList.add('hidden');
     elements.logoutBtn.classList.remove('hidden');
+    elements.notificationBell.classList.remove('hidden');
     elements.roleBadge.textContent = state.user.role.toUpperCase();
     elements.profileName.textContent = state.user.name;
     elements.welcomeText.textContent = `Welcome, ${state.user.name}`;
@@ -481,6 +598,8 @@ const setAuthUI = () => {
     elements.authSection.classList.remove('hidden');
     elements.authSection.classList.add('active');
     elements.logoutBtn.classList.add('hidden');
+    elements.notificationBell.classList.add('hidden');
+    elements.notificationDropdown.classList.add('hidden');
     elements.roleBadge.textContent = 'Guest';
     elements.profileName.textContent = 'Guest User';
     elements.welcomeText.textContent = 'Please login to continue';
@@ -526,6 +645,7 @@ const loadDashboard = async () => {
   state.initiatives = await api.getInitiatives();
   renderFeedbackDropdown();
   renderDashboardViews();
+  await loadNotifications();
   await loadApprovedIssues();
   if (isAdmin()) {
     state.issueRequests = await api.getIssues();
@@ -559,6 +679,7 @@ const handleLogin = async (event) => {
     state.user = response.user;
     setAuthUI();
     await loadDashboard();
+    startNotificationPolling();
     showToast('Login successful');
     event.target.reset();
   } catch (error) {
@@ -581,6 +702,7 @@ const handleRegister = async (event) => {
     state.user = response.user;
     setAuthUI();
     await loadDashboard();
+    startNotificationPolling();
     showToast('Registration successful');
     event.target.reset();
   } catch (error) {
@@ -731,6 +853,22 @@ const setupTopActions = () => {
   elements.goFeedbackBtn?.addEventListener('click', () =>
     setActiveSection(isAdmin() ? 'adminFeedbackSection' : 'feedbackSection')
   );
+
+  elements.notificationBell?.addEventListener('click', (event) => {
+    event.stopPropagation();
+    elements.notificationDropdown.classList.toggle('hidden');
+  });
+
+  elements.markAllReadBtn?.addEventListener('click', async () => {
+    try {
+      await api.markAllNotificationsRead();
+      state.notifications = state.notifications.map((item) => ({ ...item, read: true }));
+      renderNotifications();
+      showToast('Notifications marked as read');
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
 };
 
 const setupSearch = () => {
@@ -854,6 +992,50 @@ const setupIssueActions = () => {
       showToast(error.message);
     }
   });
+
+  elements.approvedIssuesList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-support-issue-id]');
+    if (!button || isAdmin()) return;
+
+    try {
+      const issueId = button.dataset.supportIssueId;
+      const response = await api.upvoteIssue(issueId);
+      state.approvedIssues = state.approvedIssues.map((issue) =>
+        issue._id === issueId
+          ? {
+              ...issue,
+              hasSupported: response.supported,
+              upvoteCount: response.upvoteCount
+            }
+          : issue
+      );
+      renderApprovedIssues();
+      renderApprovedIssuesMap(state.approvedIssues);
+      showToast(response.message);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
+
+  elements.notificationList?.addEventListener('click', async (event) => {
+    const button = event.target.closest('button[data-notification-id]');
+    if (!button) return;
+
+    const notificationId = button.dataset.notificationId;
+    const link = button.dataset.notificationLink;
+
+    try {
+      const updated = await api.markNotificationRead(notificationId);
+      state.notifications = state.notifications.map((item) =>
+        item._id === notificationId ? { ...item, read: updated.read } : item
+      );
+      renderNotifications();
+      elements.notificationDropdown.classList.add('hidden');
+      await navigateFromNotification(link);
+    } catch (error) {
+      showToast(error.message);
+    }
+  });
 };
 
 const setupInitiativeActions = () => {
@@ -899,6 +1081,10 @@ const setupInitiativeFormNavigation = () => {
 
 const setupMapActions = () => {
   document.addEventListener('click', (event) => {
+    if (!event.target.closest('.notification-wrap')) {
+      elements.notificationDropdown?.classList.add('hidden');
+    }
+
     const link = event.target.closest('.map-popup-link, .initiative-link');
     if (!link) return;
 
@@ -913,12 +1099,18 @@ const setupMapActions = () => {
 
 const logout = () => {
   localStorage.removeItem('token');
+  if (state.notificationPollId) {
+    clearInterval(state.notificationPollId);
+    state.notificationPollId = null;
+  }
   state.user = null;
   state.initiatives = [];
   state.issueRequests = [];
   state.myIssues = [];
   state.approvedIssues = [];
+  state.notifications = [];
   setAuthUI();
+  renderNotifications();
 };
 
 const boot = async () => {
@@ -953,6 +1145,7 @@ const boot = async () => {
     state.user = response.user;
     setAuthUI();
     await loadDashboard();
+    startNotificationPolling();
   } catch (_error) {
     logout();
   }

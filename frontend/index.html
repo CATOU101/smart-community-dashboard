@@ -78,13 +78,25 @@
             </select>
           </div>
           <div class="topbar-right">
-            <button class="icon-btn" type="button" aria-label="Notifications">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M12 2a6 6 0 0 0-6 6v3.7L4.3 15a1 1 0 0 0 .8 1.6h13.8a1 1 0 0 0 .8-1.6L18 11.7V8a6 6 0 0 0-6-6Zm0 20a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z"
-                />
-              </svg>
-            </button>
+            <div class="notification-wrap">
+              <button id="notificationBell" class="icon-btn hidden" type="button" aria-label="Notifications">
+                <span id="notificationBadge" class="notification-badge hidden">0</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 2a6 6 0 0 0-6 6v3.7L4.3 15a1 1 0 0 0 .8 1.6h13.8a1 1 0 0 0 .8-1.6L18 11.7V8a6 6 0 0 0-6-6Zm0 20a3 3 0 0 0 2.8-2H9.2A3 3 0 0 0 12 22Z"
+                  />
+                </svg>
+              </button>
+              <div id="notificationDropdown" class="notification-dropdown hidden">
+                <div class="notification-header">
+                  <strong>Notifications</strong>
+                  <button id="markAllReadBtn" type="button" class="secondary-btn notification-link-btn">
+                    Mark all read
+                  </button>
+                </div>
+                <div id="notificationList" class="notification-list"></div>
+              </div>
+            </div>
 
             <div class="profile-chip">
               <div class="avatar">CS</div>
@@ -354,6 +366,7 @@
                     <th>Title</th>
                     <th>Category</th>
                     <th>Severity</th>
+                    <th>Support</th>
                     <th>Submitter</th>
                     <th>Created At</th>
                     <th>Status</th>

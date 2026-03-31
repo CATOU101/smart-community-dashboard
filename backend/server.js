@@ -11,6 +11,7 @@ const authRoutes = require('./routes/authRoutes');
 const initiativeRoutes = require('./routes/initiativeRoutes');
 const feedbackRoutes = require('./routes/feedbackRoutes');
 const issueRoutes = require('./routes/issueRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 connectDB();
 
@@ -24,6 +25,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/initiatives', initiativeRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/issues', issueRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Serve frontend static files.
 app.use(express.static(path.resolve(__dirname, '../frontend')));

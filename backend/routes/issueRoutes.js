@@ -6,6 +6,7 @@ const {
   getPublicApprovedIssues,
   getUserIssues,
   updateIssueStatus,
+  upvoteIssue,
   convertIssueToInitiative
 } = require('../controllers/issueController');
 const { protect } = require('../middleware/authMiddleware');
@@ -51,6 +52,7 @@ router.post(
 router.get('/user', protect, getUserIssues);
 router.get('/public', protect, getPublicApprovedIssues);
 router.get('/', protect, authorize('admin'), getAllIssues);
+router.post('/:id/upvote', protect, upvoteIssue);
 router.put(
   '/:id',
   protect,

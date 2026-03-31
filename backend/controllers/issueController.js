@@ -1,5 +1,6 @@
 const IssueRequest = require('../models/IssueRequest');
 const Initiative = require('../models/Initiative');
+const { createNotification } = require('./notificationController');
 
 const PRIVATE_PLACES = [
   'house',
@@ -87,13 +88,24 @@ const createIssue = async (req, res) => {
   }
 };
 
-const getPublicApprovedIssues = async (_req, res) => {
+const getPublicApprovedIssues = async (req, res) => {
   try {
     const issues = await IssueRequest.find({ status: 'Approved' })
-      .select('title description category severity latitude longitude status createdAt')
+      .select('title description category severity latitude longitude status createdAt upvotes')
       .sort({ createdAt: -1 });
 
-    return res.json(issues);
+    const currentUserId = String(req.user._id);
+    const mappedIssues = issues.map((issue) => {
+      const upvotes = Array.isArray(issue.upvotes) ? issue.upvotes : [];
+
+      return {
+        ...issue.toObject(),
+        upvoteCount: upvotes.length,
+        hasSupported: upvotes.some((userId) => String(userId) === currentUserId)
+      };
+    });
+
+    return res.json(mappedIssues);
   } catch (error) {
     return res.status(500).json({ message: 'Failed to fetch approved issues' });
   }
@@ -132,13 +144,73 @@ const updateIssueStatus = async (req, res) => {
       return res.status(404).json({ message: 'Issue request not found' });
     }
 
+    const previousStatus = issue.status;
     issue.status = status;
     issue.rejectionReason = status === 'Rejected' ? rejectionReason || '' : '';
     await issue.save();
 
+    if (status === 'Approved' && previousStatus !== 'Approved') {
+      await createNotification({
+        userId: issue.submittedBy,
+        message: 'Your issue has been approved.',
+        link: `/issues/${issue._id}`
+      });
+    }
+
+    if (status === 'Rejected' && previousStatus !== 'Rejected') {
+      const reasonText = issue.rejectionReason ? ` Reason: ${issue.rejectionReason}` : '';
+      await createNotification({
+        userId: issue.submittedBy,
+        message: `Your issue was rejected.${reasonText}`,
+        link: `/issues/${issue._id}`
+      });
+    }
+
     return res.json(issue);
   } catch (error) {
     return res.status(400).json({ message: 'Failed to update issue status' });
+  }
+};
+
+const upvoteIssue = async (req, res) => {
+  try {
+    const issue = await IssueRequest.findById(req.params.id);
+    if (!issue) {
+      return res.status(404).json({ message: 'Issue request not found' });
+    }
+
+    if (issue.status !== 'Approved') {
+      return res.status(400).json({ message: 'Only approved issues can be supported' });
+    }
+
+    if (!Array.isArray(issue.upvotes)) {
+      issue.upvotes = [];
+    }
+
+    const currentUserId = String(req.user._id);
+    const alreadySupported = issue.upvotes.some((userId) => String(userId) === currentUserId);
+
+    if (alreadySupported) {
+      issue.upvotes = issue.upvotes.filter((userId) => String(userId) !== currentUserId);
+      await issue.save();
+
+      return res.json({
+        message: 'Support removed',
+        supported: false,
+        upvoteCount: issue.upvotes.length
+      });
+    }
+
+    issue.upvotes.push(req.user._id);
+    await issue.save();
+
+    return res.json({
+      message: 'Issue supported',
+      supported: true,
+      upvoteCount: issue.upvotes.length
+    });
+  } catch (error) {
+    return res.status(400).json({ message: 'Failed to update issue support' });
   }
 };
 
@@ -181,6 +253,12 @@ const convertIssueToInitiative = async (req, res) => {
     issue.convertedInitiative = initiative._id;
     await issue.save();
 
+    await createNotification({
+      userId: issue.submittedBy,
+      message: 'Your issue was converted to an initiative.',
+      link: `/initiatives/${initiative._id}`
+    });
+
     return res.json({ message: 'Issue converted to initiative', issue, initiative });
   } catch (error) {
     return res.status(400).json({ message: 'Failed to convert issue request' });
@@ -193,5 +271,6 @@ module.exports = {
   getPublicApprovedIssues,
   getUserIssues,
   updateIssueStatus,
+  upvoteIssue,
   convertIssueToInitiative
 };

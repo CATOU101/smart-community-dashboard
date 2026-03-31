@@ -67,6 +67,10 @@ const issueRequestSchema = new mongoose.Schema(
     images: {
       type: [String],
       default: []
+    },
+    upvotes: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+      default: []
     }
   },
   { timestamps: true }
