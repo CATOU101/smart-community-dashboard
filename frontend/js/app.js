@@ -590,6 +590,7 @@ const setAuthUI = () => {
     elements.authSection.classList.add('hidden');
     elements.logoutBtn.classList.remove('hidden');
     elements.notificationBell.classList.remove('hidden');
+    elements.goInitiativesBtn.textContent = isAdmin() ? 'Manage Initiatives' : 'View Initiatives';
     elements.roleBadge.textContent = state.user.role.toUpperCase();
     elements.profileName.textContent = state.user.name;
     elements.welcomeText.textContent = `Welcome, ${state.user.name}`;
@@ -600,6 +601,7 @@ const setAuthUI = () => {
     elements.logoutBtn.classList.add('hidden');
     elements.notificationBell.classList.add('hidden');
     elements.notificationDropdown.classList.add('hidden');
+    elements.goInitiativesBtn.textContent = 'Manage Initiatives';
     elements.roleBadge.textContent = 'Guest';
     elements.profileName.textContent = 'Guest User';
     elements.welcomeText.textContent = 'Please login to continue';
