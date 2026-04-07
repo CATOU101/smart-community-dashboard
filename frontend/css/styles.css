@@ -15,6 +15,24 @@
   --status-pending: #9ca3af;
 }
 
+body[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #111827;
+  --surface-soft: #172033;
+  --panel: #1f2937;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: #334155;
+  --accent: #60a5fa;
+  --accent-dark: #3b82f6;
+  --accent-soft: rgba(96, 165, 250, 0.12);
+  --shadow: 0 12px 30px rgba(2, 6, 23, 0.35);
+  --status-completed: #22c55e;
+  --status-ongoing: #60a5fa;
+  --status-pending: #94a3b8;
+  color-scheme: dark;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -95,7 +113,7 @@ button,
   border-radius: 8px;
   font-size: 0.72rem;
   font-weight: 700;
-  color: #222;
+  color: var(--text);
   background: var(--surface);
 }
 
@@ -112,7 +130,7 @@ button,
 
 #logoutBtn {
   margin-top: auto;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
 }
@@ -169,7 +187,13 @@ button,
 .icon-btn svg {
   width: 18px;
   height: 18px;
-  fill: #111111;
+  fill: var(--text);
+}
+
+.theme-toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text);
 }
 
 .icon-btn:hover {
@@ -200,7 +224,7 @@ button,
   width: min(360px, 85vw);
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: var(--shadow);
   z-index: 20;
 }
@@ -212,6 +236,7 @@ button,
   gap: 10px;
   padding: 12px;
   border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .notification-link-btn {
@@ -232,7 +257,7 @@ button,
   border: none;
   border-bottom: 1px solid var(--border);
   border-radius: 0;
-  background: #ffffff;
+  background: var(--surface);
   color: var(--text);
   padding: 12px;
   text-align: left;
@@ -289,6 +314,16 @@ button,
   color: var(--accent);
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+.admin-issue-filters {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.admin-issue-filters .filter-wrap {
+  min-width: 220px;
 }
 
 .profile-text strong {
@@ -365,6 +400,15 @@ button,
   color: var(--text);
 }
 
+.chart-card {
+  min-height: 340px;
+}
+
+.chart-card canvas {
+  width: 100% !important;
+  height: 260px !important;
+}
+
 .stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
@@ -406,7 +450,7 @@ select {
   padding: 10px;
   font-size: 0.94rem;
   color: var(--text);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 input:focus,
@@ -430,7 +474,7 @@ button:hover {
 }
 
 .secondary-btn {
-  background: #ffffff;
+  background: var(--surface);
   color: var(--accent);
   border: 1px solid var(--accent);
 }
@@ -442,7 +486,7 @@ button:hover {
 }
 
 .danger-btn {
-  background: #ffffff;
+  background: var(--surface);
   color: #b91c1c;
   border: 1px solid #ef4444;
 }
@@ -451,6 +495,16 @@ button:hover {
   background: #b91c1c;
   color: #ffffff;
   border-color: #b91c1c;
+}
+
+body[data-theme="dark"] .danger-btn {
+  color: #fca5a5;
+  border-color: #ef4444;
+}
+
+body[data-theme="dark"] .danger-btn:hover {
+  background: #b91c1c;
+  color: #ffffff;
 }
 
 .inline-fields {
@@ -515,6 +569,15 @@ button:hover {
   margin-top: 6px;
 }
 
+#initiativeLocationMap {
+  width: 100%;
+  height: 280px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
 #approvedIssuesMap {
   width: 100%;
   height: 320px;
@@ -527,6 +590,8 @@ button:hover {
 .leaflet-popup-content-wrapper,
 .leaflet-popup-tip {
   border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
 }
 
 .custom-map-marker {
@@ -582,7 +647,7 @@ button:hover {
   width: 100%;
   min-width: 820px;
   border-collapse: collapse;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .data-table th,
@@ -597,7 +662,7 @@ button:hover {
 .data-table th {
   font-weight: 700;
   color: var(--text);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .data-table tr:hover td {
@@ -621,6 +686,15 @@ button:hover {
   background: #e5e7eb;
 }
 
+body[data-theme="dark"] .data-table tr.issue-row-rejected td {
+  background: rgba(100, 116, 139, 0.18);
+  color: var(--text);
+}
+
+body[data-theme="dark"] .data-table tr.issue-row-rejected:hover td {
+  background: rgba(100, 116, 139, 0.28);
+}
+
 .list {
   display: grid;
   gap: 10px;
@@ -630,12 +704,12 @@ button:hover {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 12px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .item p {
   margin: 4px 0;
-  color: #333333;
+  color: var(--text);
 }
 
 .feedback-image {
@@ -787,14 +861,19 @@ code {
   padding: 2px 5px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: #fafafa;
+  background: var(--surface-soft);
+}
+
+select option {
+  background: var(--surface);
+  color: var(--text);
 }
 
 .toast {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 12px;
@@ -858,6 +937,10 @@ code {
   }
 
   #issueLocationMap {
+    height: 240px;
+  }
+
+  #initiativeLocationMap {
     height: 240px;
   }
 

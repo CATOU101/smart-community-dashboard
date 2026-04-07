@@ -78,6 +78,9 @@
             </select>
           </div>
           <div class="topbar-right">
+            <button id="themeToggleBtn" class="icon-btn" type="button" aria-label="Toggle theme">
+              <span id="themeToggleIcon" class="theme-toggle-icon">◐</span>
+            </button>
             <div class="notification-wrap">
               <button id="notificationBell" class="icon-btn hidden" type="button" aria-label="Notifications">
                 <span id="notificationBadge" class="notification-badge hidden">0</span>
@@ -154,17 +157,21 @@
           <div class="stats" id="statsCards"></div>
 
           <div class="card-grid">
-            <article class="card">
+            <article class="card chart-card">
               <h3>Progress Tracking</h3>
               <canvas id="completionChart"></canvas>
             </article>
-            <article class="card">
+            <article class="card chart-card">
               <h3>Budget Usage</h3>
               <canvas id="budgetChart"></canvas>
             </article>
-            <article class="card">
+            <article class="card chart-card">
               <h3>Status Distribution</h3>
               <canvas id="statusChart"></canvas>
+            </article>
+            <article class="card chart-card">
+              <h3>Issue Severity</h3>
+              <canvas id="severityChart"></canvas>
             </article>
           </div>
 
@@ -265,6 +272,8 @@
                   <input type="number" id="longitude" step="any" min="-180" max="180" />
                 </div>
               </div>
+              <label>Select Location on Map</label>
+              <div id="initiativeLocationMap" aria-label="Initiative location selector map"></div>
               <button type="submit">Save Initiative</button>
               <button id="cancelEditBtn" type="button" class="secondary-btn hidden">Cancel Edit</button>
             </form>
@@ -359,6 +368,18 @@
         <section id="adminIssueSection" class="section hidden admin-only">
           <article class="card">
             <h3>Issue Requests (Admin)</h3>
+            <div class="admin-issue-filters">
+              <div class="filter-wrap">
+                <select id="adminIssueStatusFilter" aria-label="Filter issue requests by status">
+                  <option value="">All Requests</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Converted">Converted</option>
+                </select>
+              </div>
+            </div>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>

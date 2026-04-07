@@ -9,12 +9,16 @@ const state = {
   approvedIssues: [],
   notifications: [],
   notificationPollId: null,
+  theme: localStorage.getItem('theme') || 'light',
   searchTerm: '',
   statusFilter: '',
+  adminIssueStatusFilter: '',
   map: null,
   mapMarkersLayer: null,
   issueMap: null,
   issueMapMarker: null,
+  initiativeFormMap: null,
+  initiativeFormMarker: null,
   approvedIssuesMap: null,
   approvedIssuesMarkersLayer: null
 };
@@ -42,6 +46,8 @@ const elements = {
   feedbackInitiative: byId('feedbackInitiative'),
   statsCards: byId('statsCards'),
   toast: byId('toast'),
+  themeToggleBtn: byId('themeToggleBtn'),
+  themeToggleIcon: byId('themeToggleIcon'),
   notificationBell: byId('notificationBell'),
   notificationBadge: byId('notificationBadge'),
   notificationDropdown: byId('notificationDropdown'),
@@ -50,7 +56,10 @@ const elements = {
   roleBadge: byId('roleBadge'),
   profileName: byId('profileName'),
   globalSearch: byId('globalSearch'),
+  searchWrap: byId('globalSearch')?.closest('.search-wrap'),
   statusFilter: byId('statusFilter'),
+  statusFilterWrap: byId('statusFilter')?.closest('.filter-wrap'),
+  adminIssueStatusFilter: byId('adminIssueStatusFilter'),
   goInitiativesBtn: byId('goInitiativesBtn'),
   goFeedbackBtn: byId('goFeedbackBtn'),
   openAddInitiativeBtn: byId('openAddInitiativeBtn'),
@@ -66,6 +75,15 @@ const showToast = (message) => {
   elements.toast.textContent = message;
   elements.toast.classList.remove('hidden');
   setTimeout(() => elements.toast.classList.add('hidden'), 2500);
+};
+
+const applyTheme = (theme) => {
+  state.theme = theme === 'dark' ? 'dark' : 'light';
+  document.body.dataset.theme = state.theme;
+  localStorage.setItem('theme', state.theme);
+  if (elements.themeToggleIcon) {
+    elements.themeToggleIcon.textContent = state.theme === 'dark' ? '☀' : '◐';
+  }
 };
 
 const readFileAsDataUrl = (file) =>
@@ -90,6 +108,11 @@ const setActiveSection = (sectionId) => {
     btn.classList.toggle('active', btn.dataset.section === sectionId);
   });
 
+  const showInitiativeToolbar =
+    sectionId === 'dashboardSection' || sectionId === 'initiativesSection';
+  elements.searchWrap?.classList.toggle('hidden', !showInitiativeToolbar);
+  elements.statusFilterWrap?.classList.toggle('hidden', !showInitiativeToolbar);
+
   if (sectionId === 'dashboardSection' && state.map) {
     setTimeout(() => state.map.invalidateSize(), 120);
   }
@@ -97,6 +120,11 @@ const setActiveSection = (sectionId) => {
   if (sectionId === 'issueSubmitSection') {
     initIssueLocationMap();
     setTimeout(() => state.issueMap?.invalidateSize(), 120);
+  }
+
+  if (sectionId === 'initiativeFormSection') {
+    initInitiativeFormMap();
+    setTimeout(() => state.initiativeFormMap?.invalidateSize(), 120);
   }
 
   if (sectionId === 'approvedIssuesSection' && state.approvedIssuesMap) {
@@ -164,6 +192,41 @@ const initIssueLocationMap = () => {
     }
 
     state.issueMapMarker = L.marker([lat, lng]).addTo(state.issueMap);
+  });
+};
+
+const syncInitiativeFormMarker = (lat, lng) => {
+  if (!state.initiativeFormMap || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+
+  if (state.initiativeFormMarker) {
+    state.initiativeFormMarker.setLatLng([lat, lng]);
+  } else {
+    state.initiativeFormMarker = L.marker([lat, lng]).addTo(state.initiativeFormMap);
+  }
+
+  state.initiativeFormMap.setView([lat, lng], 12);
+};
+
+const clearInitiativeFormMarker = () => {
+  if (state.initiativeFormMap && state.initiativeFormMarker) {
+    state.initiativeFormMap.removeLayer(state.initiativeFormMarker);
+    state.initiativeFormMarker = null;
+  }
+};
+
+const initInitiativeFormMap = () => {
+  if (state.initiativeFormMap || typeof L === 'undefined') return;
+
+  state.initiativeFormMap = L.map('initiativeLocationMap').setView([22.5726, 88.3639], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(state.initiativeFormMap);
+
+  state.initiativeFormMap.on('click', (event) => {
+    const { lat, lng } = event.latlng;
+    byId('latitude').value = lat.toFixed(6);
+    byId('longitude').value = lng.toFixed(6);
+    syncInitiativeFormMarker(lat, lng);
   });
 };
 
@@ -544,15 +607,18 @@ const renderIssueDetails = (issue) => {
 
 const renderAdminIssues = () => {
   elements.adminIssueTableBody.innerHTML = '';
+  const filteredIssues = state.issueRequests.filter(
+    (issue) => !state.adminIssueStatusFilter || issue.status === state.adminIssueStatusFilter
+  );
 
-  if (!state.issueRequests.length) {
+  if (!filteredIssues.length) {
     elements.adminIssueTableBody.innerHTML = `
       <tr><td colspan="9">No issue requests found.</td></tr>
     `;
     return;
   }
 
-  state.issueRequests.forEach((issue) => {
+  filteredIssues.forEach((issue) => {
     const row = document.createElement('tr');
     const severity = issue.severity || 'Medium';
     if (issue.status === 'Rejected') {
@@ -622,6 +688,10 @@ const clearInitiativeForm = () => {
   byId('initiativeId').value = '';
   byId('initiativeForm').reset();
   byId('budgetUsed').value = 0;
+  clearInitiativeFormMarker();
+  if (state.initiativeFormMap) {
+    state.initiativeFormMap.setView([22.5726, 88.3639], 12);
+  }
   elements.initiativeFormTitle.textContent = 'Add Initiative';
   elements.cancelEditBtn.classList.add('hidden');
 };
@@ -639,6 +709,11 @@ const populateInitiativeForm = (item) => {
   byId('endDate').value = item.endDate.slice(0, 10);
   byId('status').value = item.status;
   byId('progressPercentage').value = item.progressPercentage;
+  if (Number.isFinite(item.latitude) && Number.isFinite(item.longitude)) {
+    syncInitiativeFormMarker(item.latitude, item.longitude);
+  } else {
+    clearInitiativeFormMarker();
+  }
   elements.initiativeFormTitle.textContent = 'Edit Initiative';
   elements.cancelEditBtn.classList.remove('hidden');
 };
@@ -646,7 +721,6 @@ const populateInitiativeForm = (item) => {
 const loadDashboard = async () => {
   state.initiatives = await api.getInitiatives();
   renderFeedbackDropdown();
-  renderDashboardViews();
   await loadNotifications();
   await loadApprovedIssues();
   if (isAdmin()) {
@@ -656,14 +730,16 @@ const loadDashboard = async () => {
     state.myIssues = await api.getUserIssues();
     renderMyRequests();
   }
+  renderDashboardViews();
   await renderAdminFeedback();
 };
 
 const renderDashboardViews = () => {
   const filtered = getFilteredInitiatives();
+  const chartIssues = isAdmin() ? state.issueRequests : state.approvedIssues;
   renderStats(filtered);
   renderInitiatives(filtered);
-  renderCharts(filtered);
+  renderCharts(filtered, chartIssues);
   renderMapMarkers(filtered);
 };
 
@@ -871,6 +947,10 @@ const setupTopActions = () => {
       showToast(error.message);
     }
   });
+
+  elements.themeToggleBtn?.addEventListener('click', () => {
+    applyTheme(state.theme === 'dark' ? 'light' : 'dark');
+  });
 };
 
 const setupSearch = () => {
@@ -882,6 +962,27 @@ const setupSearch = () => {
   elements.statusFilter?.addEventListener('change', (event) => {
     state.statusFilter = event.target.value || '';
     renderDashboardViews();
+  });
+
+  elements.adminIssueStatusFilter?.addEventListener('change', (event) => {
+    state.adminIssueStatusFilter = event.target.value || '';
+    renderAdminIssues();
+  });
+
+  byId('latitude')?.addEventListener('input', () => {
+    const lat = Number(byId('latitude').value);
+    const lng = Number(byId('longitude').value);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      syncInitiativeFormMarker(lat, lng);
+    }
+  });
+
+  byId('longitude')?.addEventListener('input', () => {
+    const lat = Number(byId('latitude').value);
+    const lng = Number(byId('longitude').value);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      syncInitiativeFormMarker(lat, lng);
+    }
   });
 };
 
@@ -1073,6 +1174,8 @@ const setupInitiativeFormNavigation = () => {
   elements.openAddInitiativeBtn?.addEventListener('click', () => {
     clearInitiativeForm();
     setActiveSection('initiativeFormSection');
+    initInitiativeFormMap();
+    setTimeout(() => state.initiativeFormMap?.invalidateSize(), 120);
   });
 
   elements.backToInitiativesBtn?.addEventListener('click', () => {
@@ -1116,6 +1219,7 @@ const logout = () => {
 };
 
 const boot = async () => {
+  applyTheme(state.theme);
   setupNav();
   setupInitiativeActions();
   setupInitiativeFormNavigation();
